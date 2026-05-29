@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CivicFix - Citizen</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --primary: #2ecc71; --bg: #0a0a0a; --card: #141414; --border: #222; --text: #e0e0e0; }
+        * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+        
+        .sidebar { width: 320px; padding: 30px 20px; border-right: 1px solid var(--border); height: 100vh; position: fixed; overflow-y: auto; background: #0d0d0d; }
+        .main { margin-left: 320px; width: calc(100% - 320px); padding: 0; }
+        
+        .top-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; border-bottom: 1px solid var(--border); background: var(--bg); }
+        .nav-menu { position: relative; display: inline-block; }
+        .nav-icon { background: #1a1a1a; border: 1px solid #333; color: white; padding: 10px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+        .nav-icon:hover { border-color: var(--primary); color: var(--primary); }
+        
+        .dropdown-content { display: none; position: absolute; right: 0; top: 100%; margin-top: 10px; background: #1a1a1a; min-width: 240px; border: 1px solid #333; border-radius: 8px; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden; }
+        .show-menu { display: block !important; }
+        
+        .dropdown-content a { color: #ccc; padding: 15px 20px; text-decoration: none; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #222; font-size: 14px; }
+        .dropdown-content a:hover { background: #222; color: var(--primary); }
+
+        .content-area { padding: 40px; max-width: 1000px; }
+        .card { background: var(--card); border-radius: 12px; padding: 30px; margin-bottom: 30px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        
+        #map { height: 350px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333; filter: invert(90%) hue-rotate(180deg) brightness(85%); }
+        input, textarea { width: 100%; background: #0f0f0f; border: 1px solid #333; color: white; padding: 14px; border-radius: 8px; margin-bottom: 15px; outline: none; }
+        input:focus, textarea:focus { border-color: var(--primary); }
+        
+        .btn { background: var(--primary); color: #000; font-weight: 600; padding: 14px 20px; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; width: 100%; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; }
+        .btn:hover { background: #27ae60; box-shadow: 0 0 15px rgba(46, 204, 113, 0.4); }
+        .btn-danger { background: rgba(255,50,50,0.1); border: 1px solid rgba(255,50,50,0.3); color: #ff5555; }
+        .btn-danger:hover { background: rgba(255,50,50,0.2); box-shadow: none; }
+        
+        .verification-box { background: rgba(46, 204, 113, 0.05); border: 1px solid rgba(46, 204, 113, 0.2); padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .timestamp { font-size: 11px; color: #555; margin-top: 10px; display: flex; align-items: center; gap: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="color: var(--primary); display: flex; align-items: center; gap: 10px;">
+            <span class="material-icons-outlined">history</span> Verified History
+        </h3>
+    </div>
+    <button class="btn btn-danger" style="padding: 10px; margin-bottom: 20px;" onclick="clearAllHistory()">
+        <span class="material-icons-outlined" style="font-size: 16px; vertical-align: middle;">delete_sweep</span> Clear All History
+    </button>
+    
+    {% for report in reports %}
+        {% if report['status'] == 'Verified' %}
+        <div style="padding: 15px; border: 1px solid #222; border-radius: 8px; background: #111; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <b style="color: #ccc; font-size: 13px;">Ticket #{{ report['id'] }}</b>
+                <span class="material-icons-outlined" style="font-size: 14px; color: var(--primary);">check_circle</span>
+            </div>
+            <p style="font-size: 12px; color: #888; margin-bottom: 10px;">{{ report['user_comment'][:50] }}...</p>
+            <form id="del-{{ report['id'] }}">
+                <input type="hidden" name="report_id" value="{{ report['id'] }}">
+                <button type="button" class="btn btn-danger" style="padding: 6px; font-size: 11px;" onclick="deleteTask({{ report['id'] }})">Remove Record</button>
+            </form>
+        </div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<div class="main">
+    <div class="top-header">
+        <h1 style="font-weight: 600; color: white;">CivicFix</h1>
+        <div class="nav-menu">
+            <div class="nav-icon" onclick="toggleProfileMenu()"><span class="material-icons-outlined">person</span></div>
+            <div id="profileDropdown" class="dropdown-content">
+                <a href="/citizen"><span class="material-icons-outlined">public</span> Citizen Portal</a>
+                <a href="/logout"><span class="material-icons-outlined">logout</span> Sign Out / Switch User</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="card">
+            <h3 style="margin-bottom: 20px;">Report an Issue</h3>
+            <div id="map"></div>
+            <form id="reportForm">
+                <label style="font-size: 12px; color: #888; display: block; margin-bottom: 5px;">Evidence Photo:</label>
+                <input type="file" name="user_image" accept="image/*" capture="environment" required>
+                <textarea name="user_comment" rows="3" placeholder="Describe the issue and exact location..." required></textarea>
+                <input type="hidden" id="lat" name="lat">
+                <input type="hidden" id="lon" name="lon">
+                <button type="button" class="btn" onclick="getLocationAndSubmit()">Submit Report</button>
+            </form>
+        </div>
+
+        <h3 style="margin: 40px 0 20px 0; font-weight: 400;">Active Requests</h3>
+        {% for report in reports %}
+            {% if report['status'] != 'Verified' %}
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom: 15px;">
+                    <b style="font-size: 18px;">Ticket #{{ report['id'] }}</b>
+                    <span style="font-size: 11px; padding: 4px 10px; background: #222; border-radius: 4px; color: var(--primary); border: 1px solid #333;">{{ report['status'] }}</span>
+                </div>
+                <p style="color: #aaa; font-size: 14px;">{{ report['user_comment'] }}</p>
+                <div class="timestamp"><span class="material-icons-outlined" style="font-size: 14px;">schedule</span> Logged: {{ report['created_at'] }}</div>
+
+                {% if report['status'] == 'Completed' and report['admin_message'] %}
+                    <div class="verification-box">
+                        <p style="color: var(--primary); font-weight: 600; margin-bottom: 15px;"><span class="material-icons-outlined" style="font-size: 16px; vertical-align: middle;">info</span> Resolution Verification Required</p>
+                        <p style="font-size: 14px;"><b>Admin Note:</b> {{ report['admin_message'] }}</p>
+                        <div style="margin: 15px 0;">
+                            <img src="/static/uploads/{{ report['worker_image'] }}" style="width: 200px; border-radius: 6px; border: 1px solid #333;">
+                        </div>
+                        <form id="verify-{{ report['id'] }}">
+                            <input type="hidden" name="report_id" value="{{ report['id'] }}">
+                            <button type="button" class="btn" style="width: auto; padding: 12px 30px;" onclick="verifyTask({{ report['id'] }})">Confirm Resolution</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    function toggleProfileMenu() {
+        document.getElementById("profileDropdown").classList.toggle("show-menu");
+    }
+    window.onclick = function(event) {
+        if (!event.target.closest('.nav-icon')) {
+            var menu = document.getElementById("profileDropdown");
+            if (menu && menu.classList.contains('show-menu')) {
+                menu.classList.remove('show-menu');
+            }
+        }
+    }
+
+    var map = L.map('map').setView([33.6844, 73.0479], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    var marker;
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            var lat = pos.coords.latitude;
+            var lon = pos.coords.longitude;
+            map.setView([lat, lon], 15);
+            marker = L.marker([lat, lon]).addTo(map);
+            document.getElementById('lat').value = lat;
+            document.getElementById('lon').value = lon;
+        });
+    }
+
+    map.on('click', e => {
+        if (marker) map.removeLayer(marker);
+        marker = L.marker(e.latlng).addTo(map);
+        document.getElementById('lat').value = e.latlng.lat;
+        document.getElementById('lon').value = e.latlng.lng;
+    });
+
+    function getLocationAndSubmit() {
+        let form = document.getElementById('reportForm');
+        if (!form.checkValidity()) { form.reportValidity(); return; }
+        
+        // Client-Side Image Validation
+        let fileInput = form.querySelector('input[type="file"]');
+        if (fileInput.files.length > 0 && !fileInput.files[0].type.startsWith('image/')) {
+            alert("Please change the attached file to a valid image.");
+            return;
+        }
+
+        if (!document.getElementById('lat').value) {
+            document.getElementById('lat').value = 33.6844;
+            document.getElementById('lon').value = 73.0479;
+        }
+        
+        fetch('/submit_report', { method: 'POST', body: new FormData(form) })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.message); });
+            }
+            window.location.reload();
+        })
+        .catch(err => alert(err.message));
+    }
+
+    function verifyTask(id) { fetch('/user_verify', { method: 'POST', body: new FormData(document.getElementById('verify-' + id)) }).then(() => window.location.reload()); }
+    function deleteTask(id) { fetch('/delete_report', { method: 'POST', body: new FormData(document.getElementById('del-' + id)) }).then(() => window.location.reload()); }
+    function clearAllHistory() { fetch('/clear_all_history', { method: 'POST' }).then(() => window.location.reload()); }
+</script>
+</body>
+</html>

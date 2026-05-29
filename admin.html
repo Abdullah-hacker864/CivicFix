@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CivicFix - Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+    <style>
+        :root { --primary: #2ecc71; --bg: #0a0a0a; --card: #141414; --border: #222; }
+        body { background: var(--bg); color: #e0e0e0; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+        
+        .top-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 100;}
+        .nav-menu { position: relative; display: inline-block; }
+        .nav-icon { background: #1a1a1a; border: 1px solid #333; color: white; padding: 10px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+        .nav-icon:hover { border-color: var(--primary); color: var(--primary); }
+        
+        .dropdown-content { display: none; position: absolute; right: 0; top: 100%; margin-top: 10px; background: #1a1a1a; min-width: 240px; border: 1px solid #333; border-radius: 8px; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden; }
+        .show-menu { display: block !important; }
+        
+        .dropdown-content a { color: #ccc; padding: 15px 20px; text-decoration: none; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #222; font-size: 14px; }
+        .dropdown-content a:hover { background: #222; color: var(--primary); }
+
+        .container { padding: 40px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 30px; margin-bottom: 50px; }
+        
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .archived-card { background: #0d0d0d; border: 1px dashed #333; opacity: 0.8; }
+        
+        .img-box { display: none; margin: 15px 0; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
+        input, select { width: 100%; background: #0f0f0f; border: 1px solid #333; color: white; padding: 12px; border-radius: 6px; margin-bottom: 15px; outline:none; }
+        input:focus, select:focus { border-color: var(--primary); }
+        
+        .btn { background: var(--primary); color: #000; font-weight: 600; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; transition: 0.3s; text-transform: uppercase; font-size: 12px; }
+        .btn:hover { background: #27ae60; box-shadow: 0 0 15px rgba(46, 204, 113, 0.3); }
+        .btn-view { background: transparent; color: #888; border: 1px solid #444; margin-bottom: 10px; text-transform: none; font-size: 13px; }
+        .btn-view:hover { color: white; border-color: #888; box-shadow: none; }
+        
+        .btn-danger { background: rgba(255,50,50,0.1); border: 1px solid rgba(255,50,50,0.3); color: #ff5555; }
+        .btn-danger:hover { background: rgba(255,50,50,0.2); box-shadow:none; }
+        
+        .action-box { background: rgba(255, 255, 255, 0.02); border: 1px solid #222; border-radius: 8px; padding: 20px; margin-top: 20px; }
+        .inline-form { display: flex; gap: 10px; align-items: center; }
+        .inline-form input { margin-bottom: 0; flex-grow: 1; }
+        .inline-form .btn { width: auto; white-space: nowrap; }
+        .timestamp { font-size: 11px; color: #555; margin-top: 10px; display: flex; align-items: center; gap: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="top-header">
+    <h1 style="font-weight: 400;">CivicFix <span style="font-weight: 600; color: var(--primary);">Admin</span></h1>
+    <div class="nav-menu">
+        <div class="nav-icon" onclick="toggleProfileMenu()"><span class="material-icons-outlined">account_circle</span></div>
+        <div id="profileDropdown" class="dropdown-content">
+            <a href="/citizen"><span class="material-icons-outlined">public</span> Citizen Portal</a>
+            <a href="/logout"><span class="material-icons-outlined">logout</span> Sign Out / Switch User</a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <h2 style="margin-bottom: 20px; font-weight: 400; border-bottom: 1px solid #333; padding-bottom: 10px;">Active Command Queue</h2>
+    <div class="grid">
+        {% for report in reports %}
+            {% if report['status'] != 'Verified' %}
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 15px;">
+                    <b style="font-size: 18px;">Ticket #{{ report['id'] }}</b>
+                    <span style="font-size: 11px; padding: 4px 10px; background: #222; border-radius: 4px; color: var(--primary); border: 1px solid #333;">{{ report['status'] }}</span>
+                </div>
+                
+                <p style="font-size: 14px; color: #aaa;">{{ report['user_comment'] }}</p>
+                <div class="timestamp" style="margin-bottom: 15px;"><span class="material-icons-outlined" style="font-size: 14px;">schedule</span> Logged: {{ report['created_at'] }}</div>
+                
+                <button class="btn btn-view" onclick="toggleImg('user-{{ report['id'] }}')"><span class="material-icons-outlined" style="font-size: 16px; vertical-align: middle;">image</span> View Citizen Evidence</button>
+                <div id="user-{{ report['id'] }}" class="img-box"><img src="/static/uploads/{{ report['user_image'] }}" width="100%"></div>
+
+                {% if report['status'] == 'Pending' %}
+                    <div class="action-box">
+                        <form id="assign-{{ report['id'] }}">
+                            <input type="hidden" name="report_id" value="{{ report['id'] }}">
+                            <label style="font-size: 12px; color: #888; display: block; margin-bottom: 10px;">Dispatch Assignment:</label>
+                            <select name="worker_name">
+                                <option value="Worker1">Sanitation Dept</option>
+                                <option value="Worker2">Electrical Dept</option>
+                                <option value="Worker3">Infrastructure Dept</option>
+                            </select>
+                            <button type="button" class="btn" style="width:100%" onclick="assignTask({{ report['id'] }})">Dispatch Team</button>
+                        </form>
+                    </div>
+                    
+                {% elif report['status'] == 'Completed' %}
+                    <div class="action-box">
+                        <p style="font-size: 13px; color: var(--primary); margin-bottom:10px;"><b>Field Notes:</b> {{ report['worker_comment'] }}</p>
+                        <button class="btn btn-view" onclick="toggleImg('work-{{ report['id'] }}')">View Resolution Photo</button>
+                        <div id="work-{{ report['id'] }}" class="img-box"><img src="/static/uploads/{{ report['worker_image'] }}" width="100%"></div>
+                        
+                        <form id="msg-{{ report['id'] }}" style="margin-top: 15px;">
+                            <input type="hidden" name="report_id" value="{{ report['id'] }}">
+                            <label style="font-size: 12px; color: #888; display: block; margin-bottom: 5px;">Notify Citizen for Verification:</label>
+                            <div class="inline-form">
+                                <input type="text" name="admin_message" placeholder="Type message..." required>
+                                <button type="button" class="btn" onclick="sendMessage({{ report['id'] }})">Send</button>
+                            </div>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px;">
+        <h2 style="font-weight: 400;">Archived History Logs</h2>
+        <button class="btn btn-danger" style="width: auto;" onclick="clearAllHistory()"><span class="material-icons-outlined" style="font-size: 16px; vertical-align: middle;">delete_sweep</span> Clear Entire Archive</button>
+    </div>
+    
+    <div class="grid">
+        {% for report in reports %}
+            {% if report['status'] == 'Verified' %}
+            <div class="card archived-card">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
+                    <b style="font-size: 16px; color: #888;">Ticket #{{ report['id'] }}</b>
+                    <span style="font-size: 11px; color: #666;">VERIFIED</span>
+                </div>
+                <p style="font-size: 13px; color: #666; margin-bottom: 15px;">{{ report['user_comment'][:80] }}...</p>
+                <form id="del-{{ report['id'] }}">
+                    <input type="hidden" name="report_id" value="{{ report['id'] }}">
+                    <button type="button" class="btn btn-danger" style="width: 100%;" onclick="deleteTask({{ report['id'] }})">Permanently Delete</button>
+                </form>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    function toggleProfileMenu() {
+        document.getElementById("profileDropdown").classList.toggle("show-menu");
+    }
+    window.onclick = function(event) {
+        if (!event.target.closest('.nav-icon')) {
+            var menu = document.getElementById("profileDropdown");
+            if (menu && menu.classList.contains('show-menu')) {
+                menu.classList.remove('show-menu');
+            }
+        }
+    }
+
+    function toggleImg(id) {
+        var el = document.getElementById(id);
+        el.style.display = (el.style.display === "block") ? "none" : "block";
+    }
+    function assignTask(id) { fetch('/assign_task', { method: 'POST', body: new FormData(document.getElementById('assign-' + id)) }).then(() => window.location.reload()); }
+    function sendMessage(id) {
+        let form = document.getElementById('msg-' + id);
+        if(!form.checkValidity()){ form.reportValidity(); return; }
+        fetch('/admin_message_user', { method: 'POST', body: new FormData(form) }).then(() => window.location.reload()); 
+    }
+    function deleteTask(id) { fetch('/delete_report', { method: 'POST', body: new FormData(document.getElementById('del-' + id)) }).then(() => window.location.reload()); }
+    function clearAllHistory() { fetch('/clear_all_history', { method: 'POST' }).then(() => window.location.reload()); }
+</script>
+</body>
+</html>
